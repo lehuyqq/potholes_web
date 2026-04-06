@@ -218,6 +218,35 @@ def delete_pothole(pid):
     return jsonify({'status': 'ok', 'message': f'Deleted {pid}'})
 
 
+# ---------- API: Xóa TẤT CẢ data ----------
+@app.route('/api/potholes/clear', methods=['DELETE'])
+def clear_all_potholes():
+    """Xóa toàn bộ ổ gà trong database và ảnh."""
+    try:
+        conn = get_db()
+        # Lấy danh sách ảnh để xóa
+        rows = conn.execute('SELECT image_path FROM potholes WHERE image_path IS NOT NULL').fetchall()
+        for row in rows:
+            img_path = os.path.join(UPLOAD_DIR, row['image_path'])
+            if os.path.exists(img_path):
+                os.remove(img_path)
+
+        # Xóa toàn bộ database
+        count = conn.execute('SELECT COUNT(*) as cnt FROM potholes').fetchone()['cnt']
+        conn.execute('DELETE FROM potholes')
+        conn.commit()
+        conn.close()
+
+        print(f"[CLEAR] Deleted all {count} potholes")
+        return jsonify({
+            'status': 'ok',
+            'message': f'Deleted all {count} potholes',
+            'deleted_count': count
+        })
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
 # ---------- Serve Web Dashboard ----------
 @app.route('/')
 def index():

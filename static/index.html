@@ -607,6 +607,11 @@
  </div>
  </div>
 
+ <!-- Nút Xóa toàn bộ data (chỉ Admin) -->
+ <button class="btn btn-outline admin-only" onclick="clearAllData()" title="Xóa toàn bộ dữ liệu" style="color:var(--danger); border-color:var(--danger-bg); background:var(--danger-bg);">
+ <i class="fas fa-trash-alt"></i> Xóa tất cả
+ </button>
+
  <button class="btn btn-outline" onclick="logout()" title="Đăng xuất"><i class="fas fa-sign-out-alt"></i></button>
  <button class="btn btn-primary" id="btn-toggle-list"><i class="fas fa-list-ul"></i> Danh sách</button>
  </div>
@@ -1554,6 +1559,34 @@
   document.getElementById('sort-trigger').classList.remove('open');
   activeSort = value;
   renderList();
+ }
+
+ // ── CLEAR ALL DATA (Admin only) ──
+ window.clearAllData = function() {
+  if (!confirm('⚠️ Bạn có chắc muốn XÓA TOÀN BỘ dữ liệu ổ gà?\n\nHành động này KHÔNG THỂ hoàn tác!')) return;
+  if (!confirm('Xác nhận lần cuối: XÓA TẤT CẢ dữ liệu?')) return;
+
+  fetch(`${API_BASE}/api/potholes/clear`, { method: 'DELETE' })
+  .then(r => r.json())
+  .then(data => {
+   if (data.status === 'ok') {
+    // Xóa markers trên map
+    allFeatures.forEach(item => { if(item.layer) map.removeLayer(item.layer); });
+    allFeatures = [];
+    map.closePopup();
+    renderList();
+    // Xóa localStorage state
+    localStorage.removeItem(STORAGE_KEY_STATE);
+    showToast(`<i class="fas fa-check-circle"></i> Đã xóa ${data.deleted_count} điểm dữ liệu`, 'success');
+    console.log(`[CLEAR] Deleted ${data.deleted_count} potholes`);
+   } else {
+    showToast(`<i class="fas fa-exclamation-circle"></i> Lỗi: ${data.message}`, 'error');
+   }
+  })
+  .catch(err => {
+   console.error('[CLEAR] Error:', err);
+   showToast('<i class="fas fa-exclamation-circle"></i> Không thể kết nối server', 'error');
+  });
  }
 
  // ── GLOBAL CLICK HANDLER (close dropdowns & panels) ──
