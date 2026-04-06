@@ -1,0 +1,1572 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bản Đồ Ổ Gà | Giám sát thông minh</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+ :root {
+ --primary: #0f172a; --accent: #3b82f6; --accent-hover: #2563eb;
+ --danger: #ef4444; --danger-bg: #fef2f2;
+ --warning: #f59e0b; --warning-bg: #fffbeb;
+ --success: #10b981; --success-bg: #ecfdf5;
+ --surface: rgba(255, 255, 255, 0.95); --surface-solid: #ffffff; --surface-hover: #f8fafc; --border: #e2e8f0;
+ --text-main: #0f172a; --text-muted: #64748b;
+ --radius-sm: 10px; --radius-md: 16px; --radius-lg: 24px;
+ --shadow-sm: 0 2px 4px rgba(0,0,0,0.02); --shadow-md: 0 8px 16px -4px rgba(0,0,0,0.05);
+ --shadow-lg: 0 24px 32px -12px rgba(0,0,0,0.1), 0 12px 16px -8px rgba(0,0,0,0.06);
+ --shadow-glow: 0 0 20px rgba(59, 130, 246, 0.3);
+ }
+
+ * { margin: 0; padding: 0; box-sizing: border-box; }
+ body { font-family: 'Inter', sans-serif; background: #f1f5f9; overflow: hidden; color: var(--text-main); -webkit-font-smoothing: antialiased; }
+ 
+ /* Custom Scrollbar */
+ ::-webkit-scrollbar { width: 6px; height: 6px; }
+ ::-webkit-scrollbar-track { background: transparent; }
+ ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+ ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+ /* Role-based display */
+ body[data-role="user"] .admin-only { display: none !important; }
+
+ /* ── ANIMATIONS ── */
+ @keyframes popIn { 0% { opacity: 0; transform: scale(0.95) translateY(10px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
+ @keyframes slideInRight { 0% { opacity: 0; transform: translateX(20px); } 100% { opacity: 1; transform: translateX(0); } }
+ @keyframes slideUpFade { 0% { opacity: 0; transform: translateY(20px); } 100% { opacity: 1; transform: translateY(0); } }
+ @keyframes fadeIn { 0% { opacity: 0; } 100% { opacity: 1; } }
+ @keyframes dropDown { 0% { opacity: 0; transform: scale(0.95) translateY(-10px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
+ @keyframes swing { 0% { transform: rotate(0deg); } 20% { transform: rotate(15deg); } 40% { transform: rotate(-10deg); } 60% { transform: rotate(5deg); } 80% { transform: rotate(-5deg); } 100% { transform: rotate(0deg); } }
+ @keyframes dropdownOpen { 0% { opacity: 0; transform: translateY(-8px) scale(0.97); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
+ @keyframes shimmer { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
+ @keyframes shakeX { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-8px)} 40%{transform:translateX(8px)} 60%{transform:translateX(-5px)} 80%{transform:translateX(5px)} }
+ @keyframes pulseRed { 0%,100%{box-shadow:0 0 0 0 rgba(225,29,72,0.4)} 50%{box-shadow:0 0 0 10px rgba(225,29,72,0)} }
+ @keyframes loginFloat { 0% { transform: translateY(0px) rotate(0deg); } 50% { transform: translateY(-10px) rotate(2deg); } 100% { transform: translateY(0px) rotate(0deg); } }
+ @keyframes loginPulseBg { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+ @keyframes loginBgShapes { 0% { transform: scale(1) rotate(0deg); opacity: 0.1; } 50% { transform: scale(1.5) rotate(180deg); opacity: 0.2; } 100% { transform: scale(1) rotate(360deg); opacity: 0.1; } }
+ @keyframes loginFocusIn { 0% { transform: scale(0.98); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+
+ /* ── MODALS & OVERLAYS ── */
+ .modal-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.5); backdrop-filter: blur(8px); z-index: 9999; display: flex; align-items: center; justify-content: center; opacity: 0; visibility: hidden; transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+ .modal-overlay.show { opacity: 1; visibility: visible; }
+ .modal-content { background: var(--surface-solid); padding: 28px; border-radius: var(--radius-lg); width: 100%; max-width: 420px; box-shadow: var(--shadow-lg); transform: scale(0.95) translateY(10px); transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); border: 1px solid rgba(255,255,255,0.5); }
+ .modal-overlay.show .modal-content { transform: scale(1) translateY(0); }
+ .modal-overlay.show .modal-content { transform: scale(1); }
+ 
+ /* Schedule Board Modal */
+ #schedule-board-modal .modal-content { max-width: 620px; max-height: 85vh; display: flex; flex-direction: column; }
+ .schedule-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 16px; }
+ .schedule-header h3 { font-size: 18px; display: flex; align-items: center; gap: 10px; color: var(--primary); }
+ .btn-close-modal { background: var(--surface-hover); border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; color: var(--text-muted); }
+ .btn-close-modal:hover { background: var(--danger-bg); color: var(--danger); transform: rotate(90deg); }
+
+ /* Schedule Time Filter */
+ .sched-time-filter { display: flex; gap: 6px; flex-wrap: wrap; padding: 12px 0 14px; border-bottom: 1px solid var(--border); margin-bottom: 14px; }
+ .sched-filter-btn { display: flex; align-items: center; gap: 5px; padding: 6px 14px; border: 1.5px solid var(--border); border-radius: 20px; background: var(--surface); font-size: 12px; font-weight: 600; color: var(--text-muted); cursor: pointer; transition: all 0.22s ease; white-space: nowrap; }
+ .sched-filter-btn:hover:not(.active) { border-color: #93c5fd; color: var(--accent); background: #f0f9ff; transform: translateY(-1px); }
+ .sched-filter-btn.active { background: linear-gradient(135deg, var(--accent) 0%, #1e40af 100%); color: #fff; border-color: transparent; box-shadow: 0 4px 12px rgba(37,99,235,0.28); transform: translateY(-1px); }
+ .sched-filter-btn.active i { opacity: 0.9; }
+ .sched-count-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 10px; font-size: 10px; font-weight: 700; background: rgba(255,255,255,0.25); margin-left: 2px; }
+ .sched-filter-btn:not(.active) .sched-count-badge { background: var(--surface-hover); color: var(--text-muted); }
+
+ .schedule-list { flex: 1; overflow-y: scroll; padding-right: 8px; scrollbar-gutter: stable; }
+ .schedule-item { padding: 16px; border: 1px solid var(--border); border-radius: var(--radius-md); margin-bottom: 12px; display: flex; justify-content: space-between; align-items: flex-start; animation: slideUpFade 0.4s forwards; opacity: 0; background: var(--surface-hover); transition: all 0.2s;}
+ .schedule-item:hover { border-color: var(--accent); background: var(--surface); transform: translateY(-2px); box-shadow: var(--shadow-sm);}
+ .sched-date { font-weight: 700; color: var(--success); font-size: 14px; display: flex; align-items: center; gap: 8px; margin-bottom: 4px;}
+ .sched-coords { font-size: 13px; color: var(--text-muted); font-weight: 500;}
+ .sched-status-row { display: flex; align-items: center; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+ .sched-repair-badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+ .sched-repair-badge.in_progress { background: #fef3c7; color: #d97706; border: 1px solid #fde68a; }
+ .sched-repair-badge.completed { background: var(--success-bg); color: var(--success); border: 1px solid #6ee7b7; }
+ .sched-item-actions { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; flex-shrink: 0; margin-left: 12px; }
+ .btn-sched-edit { background: #eff6ff; color: var(--accent); border: 1px solid #bfdbfe; padding: 5px 11px; border-radius: var(--radius-sm); font-size: 11px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 5px; transition: all 0.2s; white-space: nowrap; }
+ .btn-sched-edit:hover { background: #dbeafe; transform: translateY(-1px); }
+ .btn-sched-status { border: none; padding: 5px 11px; border-radius: var(--radius-sm); font-size: 11px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 5px; transition: all 0.2s; white-space: nowrap; }
+ .btn-sched-status.set-progress { background: #fef3c7; color: #d97706; border: 1px solid #fde68a; }
+ .btn-sched-status.set-progress:hover { background: #fde68a; transform: translateY(-1px); }
+ .btn-sched-status.set-done { background: var(--success-bg); color: var(--success); border: 1px solid #6ee7b7; }
+ .btn-sched-status.set-done:hover { background: #a7f3d0; transform: translateY(-1px); }
+ .btn-sched-viewmap { background: var(--surface); color: var(--text-muted); border: 1px solid var(--border); padding: 5px 11px; border-radius: var(--radius-sm); font-size: 11px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 5px; transition: all 0.2s; white-space: nowrap; }
+ .btn-sched-viewmap:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-1px); }
+
+ /* ── DELETE CONFIRM MODAL ── */
+ #delete-confirm-modal .modal-content {
+   max-width: 380px; text-align: center; padding: 36px 32px 28px;
+   border-top: 4px solid var(--danger);
+ }
+ .delete-icon-wrap {
+   width: 72px; height: 72px; border-radius: 50%;
+   background: linear-gradient(135deg, #fff1f2, var(--danger-bg));
+   border: 2px solid #fecdd3;
+   display: flex; align-items: center; justify-content: center;
+   margin: 0 auto 20px; font-size: 28px; color: var(--danger);
+   animation: pulseRed 2s infinite;
+ }
+ .delete-modal-title { font-size: 18px; font-weight: 700; color: var(--primary); margin-bottom: 8px; }
+ .delete-modal-sub { font-size: 13px; color: var(--text-muted); line-height: 1.6; margin-bottom: 24px; }
+ .delete-modal-actions { display: flex; gap: 10px; }
+ .btn-cancel-delete {
+   flex: 1; padding: 12px; border-radius: var(--radius-sm); border: 1.5px solid var(--border);
+   background: var(--surface); font-size: 14px; font-weight: 600; color: var(--text-muted);
+   cursor: pointer; transition: all 0.2s;
+ }
+ .btn-cancel-delete:hover { background: var(--surface-hover); border-color: #94a3b8; color: var(--text-main); transform: translateY(-1px); }
+ .btn-confirm-delete {
+   flex: 1; padding: 12px; border-radius: var(--radius-sm); border: none;
+   background: linear-gradient(135deg, var(--danger), #be123c);
+   font-size: 14px; font-weight: 700; color: #fff; cursor: pointer;
+   transition: all 0.2s; box-shadow: 0 4px 14px rgba(225,29,72,0.35);
+   display: flex; align-items: center; justify-content: center; gap: 7px;
+ }
+ .btn-confirm-delete:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(225,29,72,0.45); }
+ .btn-confirm-delete:active { transform: translateY(0); animation: shakeX 0.4s ease; }
+
+ /* ── LOGIN SCREEN ── */
+ #login-screen { position: fixed; inset: 0; background: #f8fafc; z-index: 10000; display: flex; align-items: center; justify-content: center; transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.6s; overflow: hidden; }
+ #login-screen.hidden { opacity: 0; visibility: hidden; transform: scale(1.05); filter: blur(10px); }
+ 
+ /* Animated Background behind login */
+ .login-bg-shapes { position: absolute; inset: 0; z-index: 1; overflow: hidden; pointer-events: none; background: url('data:image/svg+xml;utf8,<svg width="30" height="30" viewBox="0 0 30 30" xmlns="http://www.w3.org/2000/svg"><circle cx="15" cy="15" r="1.5" fill="rgba(100,116,139,0.15)"/></svg>') repeat; }
+ .login-bg-shapes::before, .login-bg-shapes::after, .login-bg-shape-3 { content: ''; position: absolute; border-radius: 50%; filter: blur(80px); z-index: -1; animation: orbFloat 15s infinite ease-in-out alternate; }
+ .login-bg-shapes::before { width: 50vw; height: 50vw; background: rgba(59, 130, 246, 0.35); top: -10%; left: -10%; }
+ .login-bg-shapes::after { width: 45vw; height: 45vw; background: rgba(16, 185, 129, 0.25); bottom: -10%; right: -10%; animation-delay: -5s; animation-direction: alternate-reverse; }
+ .login-bg-shape-3 { width: 40vw; height: 40vw; background: rgba(139, 92, 246, 0.25); top: 40%; left: 30%; animation-delay: -10s; }
+ @keyframes orbFloat { 0% { transform: translate(0, 0) scale(1); } 100% { transform: translate(15%, 15%) scale(1.2); } }
+ .login-wrapper { position: relative; z-index: 10; animation: loginFocusIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+ .login-container { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(32px); border: 1px solid rgba(255,255,255,1); padding: 48px; border-radius: 32px; width: 100%; min-width: 380px; max-width: 440px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.15), 0 0 0 1px rgba(255,255,255,0.8); text-align: center; }
+ .login-header { margin-bottom: 32px; }
+ .login-icon { width: 80px; height: 80px; background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; border-radius: 24px; display: flex; align-items: center; justify-content: center; font-size: 36px; margin: 0 auto 20px auto; box-shadow: 0 15px 30px rgba(37,99,235,0.3); transform: rotate(-8deg); transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); position: relative; }
+ .login-icon::after { content: ''; position: absolute; inset: 0; border-radius: 24px; background: linear-gradient(135deg, rgba(255,255,255,0.4), rgba(255,255,255,0)); z-index: 1; pointer-events: none; }
+ .login-container:hover .login-icon { transform: rotate(0deg) scale(1.08) translateY(-5px); box-shadow: 0 20px 40px rgba(37,99,235,0.4); }
+ .login-header h2 { font-size: 26px; font-weight: 800; color: var(--text-main); margin-bottom: 8px; letter-spacing: -0.5px; }
+ .login-header p { font-size: 14px; color: var(--text-muted); font-weight: 500; }
+ .form-group { margin-bottom: 20px; text-align: left; position: relative; }
+ .form-group label { display: block; font-size: 13px; color: var(--text-main); margin-bottom: 8px; font-weight: 700; letter-spacing: -0.2px; }
+ .login-input-wrap { position: relative; }
+ .login-input-wrap i { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 16px; transition: color 0.3s; z-index: 2; }
+ .form-group input { width: 100%; padding: 14px 16px 14px 44px; border: 2px solid #e2e8f0; border-radius: var(--radius-md); font-size: 15px; outline: none; transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); background: #f8fafc; color: var(--text-main); font-weight: 500; }
+ .form-group input::placeholder { color: #94a3b8; font-weight: 400; }
+ .form-group input:hover { border-color: #cbd5e1; background: #fff; }
+ .form-group input:focus { border-color: var(--accent); background: #fff; box-shadow: 0 0 0 4px rgba(59,130,246,0.15); transform: translateY(-2px); }
+ .form-group input:focus + i, .form-group input:focus ~ i { color: var(--accent); }
+ .btn-login { width: 100%; background: linear-gradient(135deg, #0f172a, #1e293b); color: white; border: none; border-radius: var(--radius-md); padding: 16px; font-size: 16px; font-weight: 700; cursor: pointer; transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); margin-top: 12px; box-shadow: 0 10px 20px rgba(15,23,42,0.2); position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; gap: 8px; }
+ .btn-login::before { content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent); transition: left 0.5s ease; }
+ .btn-login:hover { transform: translateY(-3px); box-shadow: 0 15px 25px rgba(15,23,42,0.3); }
+ .btn-login:hover::before { left: 100%; }
+ .btn-login:active { transform: translateY(0); box-shadow: 0 5px 10px rgba(15,23,42,0.2); }
+ .demo-creds { font-size: 13px; color: var(--text-muted); margin-top: 28px; background: #f8fafc; padding: 16px; border-radius: var(--radius-md); border: 1px dashed #cbd5e1; text-align: left; line-height: 1.6; }
+ .demo-creds strong { color: var(--text-main); font-size: 14px; display: block; margin-bottom: 8px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; }
+ .demo-creds b { color: var(--text-main); }
+
+ /* ── DASHBOARD & HEADER ── */
+ #dashboard { display: none; opacity: 0; }
+ #dashboard.show-dash { display: block; animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+ #header { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; height: 70px; background: rgba(255, 255, 255, 0.75); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(226, 232, 240, 0.6); padding: 0 28px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 4px 20px rgba(0,0,0,0.02); }
+ .header-left { display: flex; align-items: center; gap: 14px; }
+ .header-icon { width: 36px; height: 36px; background: var(--primary); color: white; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 16px; }
+ #header h1 { font-size: 17px; font-weight: 600; }
+ #header p { font-size: 12px; color: var(--text-muted); }
+ .header-right { display: flex; gap: 12px; align-items: center; }
+
+ /* ── NOTIFICATIONS BELL & PANEL ── */
+ .notif-wrapper { position: relative; cursor: pointer; padding: 8px; border-radius: 50%; transition: background 0.2s; margin-right: 10px;}
+ .notif-wrapper:hover { background: var(--surface-hover); }
+ .notif-wrapper i { font-size: 20px; color: var(--text-muted); transition: color 0.2s; }
+ .notif-wrapper:hover i { color: var(--primary); }
+ .notif-wrapper.ringing i { animation: swing 0.6s ease-in-out; color: var(--accent); }
+ .notif-badge { position: absolute; top: 4px; right: 4px; background: var(--danger); color: white; font-size: 10px; font-weight: 700; padding: 2px 5px; border-radius: 10px; border: 2px solid #fff; display: none; }
+ .notif-badge.has-unread { display: block; animation: popIn 0.3s; }
+ .notif-panel { position: absolute; top: 50px; right: -10px; width: 380px; background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(16px); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); display: none; flex-direction: column; overflow: hidden; cursor: default; z-index: 1001; transform-origin: top right; }
+ .notif-panel.show { display: flex; animation: dropDown 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+ .notif-header { padding: 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; font-weight: 700; font-size: 15px; color: var(--primary);}
+ .btn-mark-read { font-size: 12px; color: var(--accent); cursor: pointer; font-weight: 600; padding: 4px 10px; border-radius: 20px; transition: background 0.2s;}
+ .btn-mark-read:hover { background: var(--surface-hover); }
+ .notif-list { max-height: 350px; overflow-y: auto; }
+ .notif-item { padding: 16px; border-bottom: 1px solid var(--border); display: flex; gap: 14px; position: relative; transition: background 0.2s; }
+ .notif-item:hover { background: var(--surface-hover); }
+ .notif-item.unread { background: #f8fafc; }
+ .notif-item.unread::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--accent); }
+ .notif-icon { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 16px; color: white; box-shadow: var(--shadow-sm);}
+ .notif-icon.info { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+ .notif-icon.success { background: linear-gradient(135deg, #10b981, #059669); }
+ .notif-content { flex: 1; }
+ .notif-content p { font-size: 13px; line-height: 1.4; margin-bottom: 4px;}
+ .notif-content b { color: var(--primary); font-weight: 600; }
+ .notif-time { font-size: 11px; color: var(--text-muted); font-weight: 500;}
+ .notif-empty { padding: 40px 20px; text-align: center; color: var(--text-muted); font-size: 13px; font-weight: 500; line-height: 1.6; }
+
+ /* Buttons & Stats */
+ .btn { display: flex; align-items: center; gap: 8px; border: none; border-radius: var(--radius-md); padding: 0 16px; height: 38px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+ .btn-primary { background: var(--primary); color: #fff; box-shadow: var(--shadow-sm); }
+ .btn-primary:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+ .btn-outline { background: var(--surface); border: 1px solid var(--border); color: var(--text-main); }
+ .btn-outline:hover { background: var(--surface-hover); transform: translateY(-2px); }
+
+ /* ── LAYOUT ── */
+ #main { position: fixed; top: 70px; left: 0; right: 0; bottom: 0; display: flex; }
+ #map { flex: 1; height: 100%; z-index: 1; background: #e2e8f0; }
+ #sidebar { width: 500px; height: 100%; background: var(--surface-solid); border-left: 1px solid rgba(226, 232, 240, 0.8); display: flex; flex-direction: column; z-index: 10; transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1); box-shadow: -10px 0 30px rgba(0,0,0,0.03); }
+ #sidebar.hidden { transform: translateX(100%); position: absolute; right: 0; }
+
+ /* Sidebar Tools */
+ .sidebar-header { padding: 30px 30px 24px; border-bottom: 1px solid rgba(226, 232, 240, 0.6); background: #fff; position: relative; z-index: 2; }
+ .sidebar-header h2 { font-size: 20px; font-weight: 800; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; letter-spacing: -0.5px;}
+ .role-badge { font-size: 11px; padding: 6px 12px; border-radius: 20px; font-weight: 700; background: #f8fafc; border: 1px solid #e2e8f0; color: var(--primary); display: inline-flex; align-items: center; gap: 4px; box-shadow: var(--shadow-sm); }
+ .search-box { position: relative; margin-bottom: 16px; }
+ .search-box input { width: 100%; padding: 12px 16px 12px 42px; border: 2px solid transparent; border-radius: var(--radius-md); font-size: 14px; outline: none; background: #f1f5f9; transition: all 0.3s ease; color: var(--text-main); font-weight: 500; }
+ .search-box input::placeholder { color: #94a3b8; font-weight: 400; }
+ .search-box input:focus { background: #fff; border-color: var(--accent); box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1); }
+ .search-box i { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: #94a3b8; transition: color 0.3s; font-size: 14px; }
+ .search-box input:focus + i { color: var(--accent); }
+ /* ── CUSTOM SORT DROPDOWN ── */
+ .sort-box { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--text-muted); font-weight: 500; }
+ .sort-label { display: flex; align-items: center; gap: 6px; white-space: nowrap; font-size: 12px; font-weight: 600; color: var(--text-muted); }
+
+ .custom-select-wrapper { position: relative; flex: 1; }
+ .custom-select-trigger {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 10px 16px; border: 1px solid #e2e8f0; border-radius: var(--radius-md);
+  background: #ffffff; font-size: 13px; font-weight: 600; color: var(--text-main);
+  cursor: pointer; transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); user-select: none;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+ }
+ .custom-select-trigger:hover { border-color: #cbd5e1; background: #f8fafc; transform: translateY(-1px); box-shadow: 0 4px 6px rgba(0,0,0,0.04); }
+ .custom-select-trigger.open { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); background: #fff; transform: translateY(0); }
+ .custom-select-trigger .trigger-icon { font-size: 12px; color: var(--accent); width: 24px; height: 24px; border-radius: 8px; background: rgba(59, 130, 246, 0.1); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+ .custom-select-trigger .trigger-arrow { font-size: 10px; color: #94a3b8; transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); flex-shrink: 0; }
+ .custom-select-trigger.open .trigger-arrow { transform: rotate(180deg); color: var(--accent); }
+ .trigger-text { flex: 1; }
+
+ .custom-select-dropdown {
+  position: absolute; top: calc(100% + 8px); left: 0; right: 0; z-index: 200;
+  background: rgba(255, 255, 255, 0.98); backdrop-filter: blur(16px);
+  border: 1px solid rgba(226, 232, 240, 0.8); border-radius: var(--radius-md);
+  box-shadow: 0 10px 25px rgba(0,0,0,0.08), 0 4px 10px rgba(0,0,0,0.03);
+  overflow: hidden; display: none; padding: 6px;
+ }
+ .custom-select-dropdown.open {
+  display: block;
+  animation: dropdownOpen 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+ }
+ .dropdown-option {
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+  font-size: 13px; font-weight: 500; color: var(--text-main); cursor: pointer;
+  transition: all 0.2s ease; border-radius: var(--radius-sm); margin-bottom: 2px;
+ }
+ .dropdown-option:last-child { margin-bottom: 0; }
+ .dropdown-option:hover { background: #f1f5f9; color: var(--primary); }
+ .dropdown-option.selected { background: #eff6ff; color: var(--accent); font-weight: 700; }
+ .dropdown-option.selected::after { content: '\f00c'; font-family: 'Font Awesome 6 Free'; position: absolute; right: 16px; font-size: 12px; color: var(--accent); font-weight: 900; }
+ .dropdown-option .opt-icon { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
+ .dropdown-option:nth-child(1) .opt-icon { background: #f1f5f9; color: var(--text-muted); }
+ .dropdown-option:nth-child(2) .opt-icon { background: #fef2f2; color: var(--danger); }
+ .dropdown-option:nth-child(3) .opt-icon { background: #eff6ff; color: var(--accent); }
+
+ /* ── FILTER TABS ── */
+ .filter-tabs { display: flex; gap: 8px; padding: 20px 30px; background: #fff; border-bottom: 1px solid rgba(226, 232, 240, 0.6); flex-wrap: wrap; position: relative; z-index: 1; box-shadow: 0 4px 12px rgba(0,0,0,0.01); }
+ .tab-btn { flex: 1; min-width: 0; padding: 10px 6px; border: 1px solid #e2e8f0; border-radius: var(--radius-md); background: #ffffff; font-size: 12px; font-weight: 600; color: var(--text-muted); cursor: pointer; text-align: center; transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); white-space: nowrap; }
+ .tab-btn i { font-size: 14px; padding: 6px; border-radius: 10px; background: #f1f5f9; transition: all 0.3s ease; }
+ .tab-btn:hover:not(.active) { border-color: #cbd5e1; color: var(--primary); transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.04); }
+ .tab-btn:hover:not(.active) i { background: #e2e8f0; color: var(--primary); }
+ .tab-btn.active { background: #ffffff; color: var(--primary); border-color: transparent; box-shadow: 0 8px 16px rgba(0,0,0,0.08); transform: translateY(-2px); position: relative; }
+ .tab-btn.active::after { content: ''; position: absolute; bottom: -1px; left: 20%; right: 20%; height: 3px; border-radius: 3px 3px 0 0; }
+ .tab-btn[data-filter="all"].active::after { background: var(--primary); }
+ .tab-btn[data-filter="all"].active i { background: var(--primary); color: #fff; box-shadow: 0 4px 10px rgba(15, 23, 42, 0.2); }
+ .tab-btn[data-filter="danger"].active::after { background: var(--danger); }
+ .tab-btn[data-filter="danger"].active i { background: var(--danger); color: #fff; box-shadow: 0 4px 10px rgba(239, 68, 68, 0.25); }
+ .tab-btn[data-filter="warning"].active::after { background: var(--warning); }
+ .tab-btn[data-filter="warning"].active i { background: var(--warning); color: #fff; box-shadow: 0 4px 10px rgba(245, 158, 11, 0.25); }
+ .tab-btn[data-filter="in_progress"].active::after { background: var(--success); }
+ .tab-btn[data-filter="in_progress"].active i { background: var(--success); color: #fff; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.25); }
+
+ /* List */
+ #pothole-list { flex: 1; overflow-y: auto; padding: 24px 30px; background: #f8fafc; }
+
+ /* ── ANALYTICS PANEL ── */
+ #analytics-panel {
+   display: none; flex: 1; overflow-y: auto; padding: 0;
+   background: #f8fafc;
+ }
+ #analytics-panel.visible { display: flex; flex-direction: column; }
+
+ .analytics-hero {
+   padding: 30px 30px 24px;
+   background: #fff;
+   border-bottom: 1px solid rgba(226, 232, 240, 0.6);
+   position: relative;
+   overflow: hidden;
+ }
+ .analytics-hero::before {
+   content: ''; position: absolute; top: -50px; right: -50px; width: 150px; height: 150px;
+   background: radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, rgba(255,255,255,0) 70%);
+   border-radius: 50%;
+ }
+ .analytics-hero h3 {
+   font-size: 18px; font-weight: 800; color: var(--primary);
+   display: flex; align-items: center; gap: 10px; margin-bottom: 6px; letter-spacing: -0.5px;
+   position: relative; z-index: 1;
+ }
+ .analytics-hero h3 i { background: linear-gradient(135deg, #3b82f6, #2563eb); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+ .analytics-hero p { font-size: 13px; color: var(--text-muted); position: relative; z-index: 1; }
+
+ .stat-grid {
+   display: grid; grid-template-columns: 1fr 1fr;
+   gap: 20px; padding: 30px;
+ }
+ .stat-card {
+   background: #ffffff;
+   border: 1px solid rgba(226, 232, 240, 0.8);
+   border-radius: var(--radius-lg);
+   padding: 24px;
+   position: relative; overflow: hidden;
+   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+   box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+   display: flex; flex-direction: column;
+ }
+ .stat-card:hover { transform: translateY(-4px); box-shadow: 0 12px 24px rgba(0,0,0,0.06); border-color: transparent; }
+ .stat-card::after {
+   content: ''; position: absolute; top: 0; right: 0; width: 80px; height: 80px;
+   border-radius: 50%; opacity: 0.1; transform: translate(30%, -30%);
+   transition: transform 0.4s ease;
+ }
+ .stat-card:hover::after { transform: translate(10%, -10%) scale(1.2); }
+ .stat-card.blue::after { background: radial-gradient(circle, #3b82f6 0%, transparent 70%); }
+ .stat-card.red::after { background: radial-gradient(circle, #ef4444 0%, transparent 70%); }
+ .stat-card.amber::after { background: radial-gradient(circle, #f59e0b 0%, transparent 70%); }
+ .stat-card.green::after { background: radial-gradient(circle, #10b981 0%, transparent 70%); }
+
+ .stat-card-icon {
+   width: 40px; height: 40px; border-radius: 12px;
+   display: flex; align-items: center; justify-content: center;
+   font-size: 18px; margin-bottom: 16px;
+ }
+ .stat-card.blue .stat-card-icon { background: #eff6ff; color: #3b82f6; }
+ .stat-card.red .stat-card-icon { background: #fef2f2; color: #ef4444; }
+ .stat-card.amber .stat-card-icon { background: #fffbeb; color: #f59e0b; }
+ .stat-card.green .stat-card-icon { background: #ecfdf5; color: #10b981; }
+
+ .stat-card-value { font-size: 28px; font-weight: 800; color: var(--primary); line-height: 1; margin-bottom: 6px; letter-spacing: -1px; }
+ .stat-card-label { font-size: 12px; color: var(--text-muted); font-weight: 600; }
+
+ .chart-section {
+   padding: 0 30px 30px;
+ }
+ .chart-block {
+   background: #ffffff;
+   border: 1px solid rgba(226, 232, 240, 0.8);
+   border-radius: var(--radius-lg);
+   padding: 24px;
+   margin-bottom: 20px;
+   transition: all 0.3s ease;
+   box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+ }
+ .chart-block:hover { box-shadow: 0 8px 24px rgba(0,0,0,0.04); }
+ .chart-block-header {
+   display: flex; align-items: center; justify-content: space-between;
+   margin-bottom: 20px;
+ }
+ .chart-block-title {
+   font-size: 14px; font-weight: 800; color: var(--primary);
+   display: flex; align-items: center; gap: 8px; letter-spacing: -0.2px;
+ }
+ .chart-block-title i { color: var(--accent); font-size: 14px; background: #eff6ff; padding: 6px; border-radius: 8px; }
+ .chart-badge {
+   font-size: 11px; font-weight: 700; padding: 4px 10px;
+   border-radius: 20px; background: #f1f5f9; color: var(--text-muted);
+ }
+ .chart-wrapper { position: relative; width: 100%; }
+ .chart-wrapper canvas { border-radius: 8px; }
+
+ /* Donut legend */
+ .donut-wrap { display: flex; align-items: center; gap: 20px; }
+ .donut-chart-area { flex-shrink: 0; position: relative; }
+ .donut-legend { display: flex; flex-direction: column; gap: 12px; flex: 1; }
+ .legend-row { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 8px; transition: background 0.2s; }
+ .legend-row:hover { background: #f8fafc; }
+ .legend-dot { width: 12px; height: 12px; border-radius: 4px; flex-shrink: 0; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+ .legend-label { font-size: 12px; color: var(--text-muted); flex: 1; font-weight: 500; }
+ .legend-value { font-size: 14px; font-weight: 800; color: var(--primary); }
+
+ /* Analytics refresh btn */
+ .btn-refresh-analytics {
+   display: flex; align-items: center; justify-content: center; gap: 8px;
+   padding: 12px; border-radius: var(--radius-md);
+   border: 1px dashed #cbd5e1;
+   background: #f8fafc;
+   color: var(--text-muted); font-size: 13px; font-weight: 700;
+   cursor: pointer; transition: all 0.3s; margin: 0 24px 24px;
+ }
+ .btn-refresh-analytics:hover { background: #eff6ff; color: var(--accent); border-color: #93c5fd; border-style: solid; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1); }
+
+ /* Sidebar view switcher */
+ .sidebar-view-tabs {
+   display: flex; background: #fff; border-bottom: 1px solid rgba(226, 232, 240, 0.6);
+   padding: 0 30px; gap: 30px;
+ }
+ .sidebar-view-tab {
+   flex: 1; padding: 16px 8px; font-size: 13px; font-weight: 700;
+   color: #94a3b8; border: none; background: transparent;
+   cursor: pointer; transition: all 0.3s ease; display: flex; align-items: center;
+   justify-content: center; gap: 8px; border-bottom: 3px solid transparent; letter-spacing: -0.2px;
+ }
+ .sidebar-view-tab:hover:not(.active) { color: var(--primary); }
+ .sidebar-view-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+ .sidebar-view-tab.active-analytics { color: #8b5cf6; border-bottom-color: #8b5cf6; }
+ .sidebar-view-tab.active-analytics i { color: #8b5cf6; }
+ .sidebar-view-tab i { font-size: 15px; }
+
+ /* List wrapper for toggling */
+ #list-view-wrapper { display: flex; flex-direction: column; flex: 1; overflow: hidden; background: #f8fafc; }
+ #list-view-wrapper.hidden-view { display: none; }
+ .list-item { background: #ffffff; border: 1px solid rgba(226, 232, 240, 0.8); border-radius: var(--radius-md); padding: 24px; margin-bottom: 20px; cursor: pointer; transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); animation: slideUpFade 0.5s forwards; opacity: 0; box-shadow: 0 2px 8px rgba(0,0,0,0.02); }
+ .list-item:hover { transform: translateY(-4px); box-shadow: 0 12px 24px rgba(0,0,0,0.06); border-color: transparent; }
+ .list-item.active { border: 2px solid var(--accent); background: #ffffff; box-shadow: 0 8px 24px rgba(59, 130, 246, 0.15); }
+ .item-header { display: flex; justify-content: space-between; margin-bottom: 12px; }
+ .item-title { font-size: 16px; font-weight: 800; color: var(--primary); display: flex; align-items: center; gap: 8px; letter-spacing: -0.3px;}
+ .item-dot { width: 10px; height: 10px; border-radius: 50%; }
+ .item-dot.danger { background: var(--danger); box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2); }
+ .item-dot.warning { background: var(--warning); box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2); }
+ .item-meta { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+ .meta-chip { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); background: #f1f5f9; border-radius: 8px; padding: 6px 10px; font-weight: 600;}
+ .item-actions { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #f1f5f9; padding-top: 14px;}
+ 
+ .btn-upvote { background: none; border: 1px solid var(--border); padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; color: var(--text-muted); cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 5px;}
+ .btn-upvote:hover { border-color: var(--accent); color: var(--accent); }
+ .btn-upvote.voted { background: var(--accent); color: #fff; border-color: var(--accent); }
+ 
+ .badge { padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; }
+ .badge-danger { background: var(--danger-bg); color: var(--danger); }
+ .badge-warning { background: var(--warning-bg); color: var(--warning); }
+ .badge-success { background: var(--success-bg); color: var(--success); }
+
+ /* Popup */
+ .leaflet-popup-content-wrapper { border-radius: var(--radius-lg) !important; padding: 0 !important; overflow: hidden; box-shadow: var(--shadow-lg) !important; border: 1px solid rgba(255,255,255,0.8); }
+ .leaflet-popup-content { margin: 0 !important; min-width: 300px; }
+ .popup-header { padding: 16px; border-bottom: 1px solid var(--border); background: var(--surface-hover);}
+ .popup-title { font-size: 14px; font-weight: 600; color: var(--primary); }
+ .popup-body { padding: 16px; }
+ .popup-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px dashed var(--border); font-size: 13px;}
+ .popup-actions { display: flex; gap: 8px; margin-top: 12px; }
+ .popup-actions button { flex: 1; padding: 8px; border-radius: var(--radius-sm); border: none; font-size: 12px; font-weight: 600; cursor: pointer; }
+ .btn-delete { background: var(--danger-bg); color: var(--danger); }
+ .btn-schedule { background: var(--success-bg); color: var(--success); }
+ .btn-upvote-pop { background: var(--surface-hover); border: 1px solid var(--border); color: var(--text-main); }
+ .btn-upvote-pop.voted { background: var(--accent); color: #fff; border:none; }
+ .popup-image { width: 100%; height: 160px; object-fit: cover; display: block; border-bottom: 1px solid var(--border); background: #f1f5f9; }
+ .popup-image-placeholder { width: 100%; height: 100px; display: flex; align-items: center; justify-content: center; background: var(--surface-hover); color: var(--text-muted); font-size: 12px; border-bottom: 1px solid var(--border); gap: 6px; }
+
+ /* Toast */
+ #toast { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%) translateY(100px); z-index: 10000; color: #fff; padding: 14px 32px; border-radius: 30px; font-size: 14px; font-weight: 600; box-shadow: var(--shadow-lg); opacity: 0; transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1); display: flex; align-items: center; gap: 12px; pointer-events: none; backdrop-filter: blur(10px); }
+ #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+ <div class="login-bg-shapes"><div class="login-bg-shape-3"></div></div>
+ <div class="login-wrapper">
+  <div class="login-container">
+  <div class="login-header">
+   <div class="login-icon"><i class="fas fa-map-marked-alt"></i></div>
+   <h2>Hệ thống giám sát</h2>
+   <p>Đăng nhập để truy cập bản đồ cảnh báo ổ gà</p>
+  </div>
+  <div class="form-group">
+   <label>Tên đăng nhập</label>
+   <div class="login-input-wrap">
+    <input type="text" id="login-username" placeholder="admin hoặc user" value="admin">
+    <i class="fas fa-user"></i>
+   </div>
+  </div>
+  <div class="form-group">
+   <label>Mật khẩu</label>
+   <div class="login-input-wrap">
+    <input type="password" id="login-password" placeholder="••••••" value="123456">
+    <i class="fas fa-lock"></i>
+   </div>
+  </div>
+  <button class="btn-login" id="btn-do-login" onclick="processLogin()">Đăng nhập <i class="fas fa-arrow-right"></i></button>
+  <div class="demo-creds">
+   <strong><i class="fas fa-info-circle"></i> Tài khoản Demo:</strong>
+   <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+    <i class="fas fa-user-shield" style="color:var(--danger); width:16px;"></i> <span><b>Admin</b> (Toàn quyền): admin / 123456</span>
+   </div>
+   <div style="display:flex; align-items:center; gap:8px;">
+    <i class="fas fa-user" style="color:var(--accent); width:16px;"></i> <span><b>User</b> (Xem, upvote): user / 123456</span>
+   </div>
+  </div>
+  </div>
+ </div>
+</div>
+
+<!-- SET SCHEDULE MODAL -->
+<div id="date-picker-modal" class="modal-overlay">
+ <div class="modal-content">
+ <h3 style="margin-bottom:16px; font-size:16px;"><i class="fas fa-calendar-alt" style="color:var(--accent)"></i> Lên lịch sửa chữa</h3>
+ <div class="form-group">
+ <label>Chọn ngày và giờ dự kiến:</label>
+ <input type="datetime-local" id="schedule-time-input">
+ </div>
+ <div style="display:flex; gap:10px; margin-top:20px;">
+ <button class="btn btn-outline" style="flex:1; justify-content:center;" onclick="closeDatePicker()">Hủy</button>
+ <button class="btn btn-primary" style="flex:1; justify-content:center; background:var(--success);" onclick="confirmSchedule()">Xác nhận</button>
+ </div>
+ </div>
+</div>
+
+<!-- SCHEDULE BOARD MODAL -->
+<div id="schedule-board-modal" class="modal-overlay">
+ <div class="modal-content">
+ <div class="schedule-header">
+ <h3><i class="fas fa-tasks"></i> Lịch trình sửa chữa</h3>
+ <button class="btn-close-modal" onclick="closeScheduleBoard()"><i class="fas fa-times"></i></button>
+ </div>
+ <!-- Time filter bar -->
+ <div class="sched-time-filter" id="sched-time-filter">
+  <button class="sched-filter-btn active" data-period="all" onclick="selectSchedFilter(this)">
+   <i class="fas fa-layer-group"></i> Tất cả <span class="sched-count-badge" id="sfc-all">0</span>
+  </button>
+  <button class="sched-filter-btn" data-period="today" onclick="selectSchedFilter(this)">
+   <i class="fas fa-sun"></i> Hôm nay <span class="sched-count-badge" id="sfc-today">0</span>
+  </button>
+  <button class="sched-filter-btn" data-period="week" onclick="selectSchedFilter(this)">
+   <i class="fas fa-calendar-week"></i> Tuần này <span class="sched-count-badge" id="sfc-week">0</span>
+  </button>
+  <button class="sched-filter-btn" data-period="month" onclick="selectSchedFilter(this)">
+   <i class="fas fa-calendar-alt"></i> Tháng này <span class="sched-count-badge" id="sfc-month">0</span>
+  </button>
+ </div>
+ <div class="schedule-list" id="schedule-board-list">
+ <!-- Load via JS -->
+ </div>
+ </div>
+</div>
+
+<!-- EDIT SCHEDULE MODAL (admin only) -->
+<div id="edit-schedule-modal" class="modal-overlay">
+ <div class="modal-content">
+ <h3 style="margin-bottom:16px; font-size:16px;"><i class="fas fa-edit" style="color:var(--accent)"></i> Chỉnh sửa lịch trình</h3>
+ <div class="form-group">
+  <label>Chọn ngày và giờ mới:</label>
+  <input type="datetime-local" id="edit-schedule-time-input">
+ </div>
+ <div style="display:flex; gap:10px; margin-top:20px;">
+  <button class="btn btn-outline" style="flex:1; justify-content:center;" onclick="closeEditScheduleModal()">Hủy</button>
+  <button class="btn btn-primary" style="flex:1; justify-content:center; background:var(--accent);" onclick="confirmEditSchedule()"><i class="fas fa-save"></i> Lưu thay đổi</button>
+ </div>
+ </div>
+</div>
+
+<!-- DELETE CONFIRM MODAL -->
+<div id="delete-confirm-modal" class="modal-overlay">
+ <div class="modal-content">
+ <div class="delete-icon-wrap"><i class="fas fa-trash-alt"></i></div>
+ <div class="delete-modal-title">Xác nhận xóa</div>
+ <div class="delete-modal-sub" id="delete-modal-desc">Bạn có chắc muốn xóa điểm dữ liệu này khỏi bản đồ?<br>Hành động này <strong>không thể hoàn tác</strong>.</div>
+ <div class="delete-modal-actions">
+  <button class="btn-cancel-delete" onclick="closeDeleteModal()"><i class="fas fa-times"></i> Hủy bỏ</button>
+  <button class="btn-confirm-delete" id="btn-confirm-delete-action"><i class="fas fa-trash-alt"></i> Xóa ngay</button>
+ </div>
+ </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard">
+ <div id="header">
+ <div class="header-left">
+ <div class="header-icon"><i class="fas fa-road"></i></div>
+ <div>
+ <h1>Bản Đồ Ổ Gà</h1>
+ <p>Hệ thống giám sát mặt đường</p>
+ </div>
+ </div>
+ <div class="header-right">
+ <!-- Schedule Board Button -->
+ <button class="btn btn-outline" onclick="openScheduleBoard()" title="Xem lịch trình sửa chữa">
+ <i class="fas fa-calendar-check" style="color:var(--success)"></i> Lịch trình
+ </button>
+
+ <!-- Notification Bell -->
+ <div class="notif-wrapper" id="bell-icon" onclick="toggleNotifPanel(event)">
+ <i class="fas fa-bell"></i>
+ <span class="notif-badge" id="notif-badge">0</span>
+ 
+ <div class="notif-panel" id="notif-panel" onclick="event.stopPropagation()">
+ <div class="notif-header">
+ <span>Thông báo mới</span>
+ <span class="btn-mark-read" onclick="markAllRead()"><i class="fas fa-check-double"></i> Đánh dấu đã đọc</span>
+ </div>
+ <div class="notif-list" id="notif-list"></div>
+ </div>
+ </div>
+
+ <button class="btn btn-outline" onclick="logout()" title="Đăng xuất"><i class="fas fa-sign-out-alt"></i></button>
+ <button class="btn btn-primary" id="btn-toggle-list"><i class="fas fa-list-ul"></i> Danh sách</button>
+ </div>
+ </div>
+
+ <div id="main">
+ <div id="map"></div>
+ <div id="sidebar">
+ <div class="sidebar-header">
+ <h2>
+ <span><i class="fas fa-crosshairs" style="color: var(--accent);"></i> Danh sách điểm</span>
+ <span class="role-badge" id="display-role">Admin</span>
+ </h2>
+ <div class="search-box">
+ <i class="fas fa-search"></i>
+ <input type="text" id="search-input" placeholder="Tìm kiếm tọa độ...">
+ </div>
+ <div class="sort-box">
+ <span class="sort-label"><i class="fas fa-sort-amount-down"></i> Sắp xếp:</span>
+ <div class="custom-select-wrapper" id="sort-wrapper">
+  <div class="custom-select-trigger" id="sort-trigger" onclick="toggleSortDropdown(event)">
+  <span class="trigger-icon"><i class="fas fa-list-ol"></i></span>
+  <span class="trigger-text" id="sort-trigger-text">Mặc định</span>
+  <i class="fas fa-chevron-down trigger-arrow"></i>
+  </div>
+  <div class="custom-select-dropdown" id="sort-dropdown">
+  <div class="dropdown-option selected" data-value="default" onclick="selectSort(this)">
+   <span class="opt-icon"><i class="fas fa-minus"></i></span> Mặc định
+  </div>
+  <div class="dropdown-option" data-value="vibration" onclick="selectSort(this)">
+   <span class="opt-icon"><i class="fas fa-wave-square"></i></span> Rung cao nhất
+  </div>
+  <div class="dropdown-option" data-value="upvotes" onclick="selectSort(this)">
+   <span class="opt-icon"><i class="fas fa-arrow-up"></i></span> Nhiều Upvote
+  </div>
+  </div>
+ </div>
+ </div>
+ </div>
+
+ <!-- Sidebar View Tabs -->
+ <div class="sidebar-view-tabs">
+  <button class="sidebar-view-tab active" id="tab-list-view" onclick="switchSidebarView('list')">
+   <i class="fas fa-list-ul"></i> Danh sách
+  </button>
+  <button class="sidebar-view-tab" id="tab-analytics-view" onclick="switchSidebarView('analytics')">
+   <i class="fas fa-chart-pie"></i> Thống kê
+  </button>
+ </div>
+
+ <!-- List View Wrapper -->
+ <div id="list-view-wrapper">
+  <div class="filter-tabs">
+   <button class="tab-btn active" data-filter="all"><i class="fas fa-layer-group"></i> Tất cả</button>
+   <button class="tab-btn" data-filter="danger"><i class="fas fa-exclamation-circle"></i> Nguy hiểm</button>
+   <button class="tab-btn" data-filter="warning"><i class="fas fa-exclamation-triangle"></i> Cảnh báo</button>
+   <button class="tab-btn" data-filter="in_progress"><i class="fas fa-hard-hat"></i> Đang sửa</button>
+  </div>
+  <div id="pothole-list"></div>
+ </div>
+
+ <!-- Analytics Panel -->
+ <div id="analytics-panel">
+  <div class="analytics-hero">
+   <h3><i class="fas fa-chart-line" style="color:#60a5fa;"></i> Tổng hợp số liệu</h3>
+   <p>Cập nhật theo thời gian thực từ dữ liệu bản đồ</p>
+  </div>
+
+  <div class="stat-grid" id="stat-grid">
+   <div class="stat-card blue">
+    <div class="stat-card-icon"><i class="fas fa-map-marker-alt"></i></div>
+    <div class="stat-card-value" id="stat-total">0</div>
+    <div class="stat-card-label">Tổng điểm</div>
+   </div>
+   <div class="stat-card red">
+    <div class="stat-card-icon"><i class="fas fa-exclamation-circle"></i></div>
+    <div class="stat-card-value" id="stat-danger">0</div>
+    <div class="stat-card-label">Nguy hiểm</div>
+   </div>
+   <div class="stat-card amber">
+    <div class="stat-card-icon"><i class="fas fa-hard-hat"></i></div>
+    <div class="stat-card-value" id="stat-inprogress">0</div>
+    <div class="stat-card-label">Đang sửa</div>
+   </div>
+   <div class="stat-card green">
+    <div class="stat-card-icon"><i class="fas fa-check-circle"></i></div>
+    <div class="stat-card-value" id="stat-completed">0</div>
+    <div class="stat-card-label">Đã sửa xong</div>
+   </div>
+  </div>
+
+  <div class="chart-section">
+
+   <!-- Chart 1: Mức độ phân bổ (Donut) -->
+   <div class="chart-block">
+    <div class="chart-block-header">
+     <div class="chart-block-title"><i class="fas fa-chart-pie"></i> Phân bổ mức độ</div>
+     <span class="chart-badge">Tỷ lệ %</span>
+    </div>
+    <div class="donut-wrap">
+     <div class="donut-chart-area">
+      <canvas id="chart-severity" width="110" height="110"></canvas>
+     </div>
+     <div class="donut-legend" id="legend-severity"></div>
+    </div>
+   </div>
+
+   <!-- Chart 2: Trạng thái sửa chữa (Donut) -->
+   <div class="chart-block">
+    <div class="chart-block-header">
+     <div class="chart-block-title"><i class="fas fa-tools"></i> Trạng thái sửa chữa</div>
+     <span class="chart-badge">Tổng quan</span>
+    </div>
+    <div class="donut-wrap">
+     <div class="donut-chart-area">
+      <canvas id="chart-status" width="110" height="110"></canvas>
+     </div>
+     <div class="donut-legend" id="legend-status"></div>
+    </div>
+   </div>
+
+   <!-- Chart 3: Chỉ số rung (Bar) -->
+   <div class="chart-block">
+    <div class="chart-block-header">
+     <div class="chart-block-title"><i class="fas fa-wave-square"></i> Phân bố chỉ số rung</div>
+     <span class="chart-badge">Phân bố</span>
+    </div>
+    <div class="chart-wrapper" style="height:140px;">
+     <canvas id="chart-vibration"></canvas>
+    </div>
+   </div>
+
+   <!-- Chart 4: Upvotes top (Horizontal bar) -->
+   <div class="chart-block">
+    <div class="chart-block-header">
+     <div class="chart-block-title"><i class="fas fa-arrow-up"></i> Top điểm được quan tâm</div>
+     <span class="chart-badge">Upvotes</span>
+    </div>
+    <div class="chart-wrapper" style="height:130px;">
+     <canvas id="chart-upvotes"></canvas>
+    </div>
+   </div>
+
+  </div>
+
+  <button class="btn-refresh-analytics" onclick="renderAnalytics()">
+   <i class="fas fa-sync-alt"></i> Làm mới dữ liệu
+  </button>
+ </div>
+
+ </div>
+ </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+ let map;
+ let allFeatures = [];
+ let activeFilter = 'all';
+ let searchQuery = '';
+ let activeSort = 'default';
+ let activeItemIdx = null;
+ let pendingScheduleId = null;
+
+ let currentUser = { role: 'guest', username: '' };
+
+ const STORAGE_KEY_STATE = 'pothole_state_v3';
+ const STORAGE_KEY_NOTIFS = 'pothole_notifs_v3';
+
+ // API base URL - tự detect từ origin hiện tại
+ const API_BASE = window.location.origin;
+ const AUTO_REFRESH_INTERVAL = 30000; // 30 giây
+ let autoRefreshTimer = null;
+
+ const dummyGeoJSON = {
+ "type": "FeatureCollection",
+ "features": [
+ { "type": "Feature", "geometry": { "type": "Point", "coordinates": [109.210245, 13.771274] }, "properties": { "vibration": 25, "confidence": 0.95, "time": "2026-04-01 10:00" } },
+ { "type": "Feature", "geometry": { "type": "Point", "coordinates": [109.215100, 13.775300] }, "properties": { "vibration": 15, "confidence": 0.85, "time": "2026-04-01 11:30" } },
+ { "type": "Feature", "geometry": { "type": "Point", "coordinates": [109.205500, 13.768000] }, "properties": { "vibration": 30, "confidence": 0.99, "time": "2026-04-01 08:15" } }
+ ]
+ };
+
+ // ── HELPERS ──
+ const generateId = (lat, lng) => 'pt_' + lat.toString().replace(/\./g, '_') + '-' + lng.toString().replace(/\./g, '_');
+ 
+ function showToast(msg, type = 'success') {
+ const toast = document.getElementById('toast');
+ toast.innerHTML = msg;
+ toast.style.background = type === 'success' ? '#10b981' : (type === 'error' ? '#e11d48' : '#2563eb');
+ toast.classList.add('show');
+ if(window.toastTimeout) clearTimeout(window.toastTimeout);
+ window.toastTimeout = setTimeout(() => { toast.classList.remove('show'); }, 3500);
+ }
+
+ // ── DATA SYNCHRONIZATION ──
+ function getPotholeState() { return JSON.parse(localStorage.getItem(STORAGE_KEY_STATE) || '{}'); }
+ function savePotholeState(state) { localStorage.setItem(STORAGE_KEY_STATE, JSON.stringify(state)); }
+ function getNotifs() { return JSON.parse(localStorage.getItem(STORAGE_KEY_NOTIFS) || '[]'); }
+ function saveNotifs(notifs) { localStorage.setItem(STORAGE_KEY_NOTIFS, JSON.stringify(notifs)); }
+
+ function addNotification(targetRole, message, type) {
+ const notifs = getNotifs();
+ notifs.unshift({ id: Date.now(), targetRole, sender: currentUser.username, message, type, time: new Date().toLocaleTimeString('vi-VN'), readBy: [] });
+ saveNotifs(notifs);
+ window.dispatchEvent(new CustomEvent('storage', { detail: { key: STORAGE_KEY_NOTIFS } }));
+ }
+
+ function triggerBellAnimation() {
+ const bell = document.getElementById('bell-icon');
+ bell.classList.remove('ringing');
+ void bell.offsetWidth; 
+ bell.classList.add('ringing');
+ }
+
+ window.addEventListener('storage', (e) => {
+ if (currentUser.role === 'guest') return;
+
+ // Determine which key changed (CustomEvent from same tab carries detail.key;
+ // native StorageEvent from other tabs carries e.key)
+ const changedKey = (e instanceof StorageEvent) ? e.key : (e.detail && e.detail.key);
+
+ // Only re-render pothole list when pothole state changed (not on notif-only changes)
+ if (changedKey !== STORAGE_KEY_NOTIFS) {
+   const state = getPotholeState();
+   allFeatures.forEach(item => {
+   if (state[item.id]) {
+   item.upvotes = state[item.id].upvotes || 0;
+   item.status = state[item.id].status || 'pending';
+   item.votedBy = state[item.id].votedBy || [];
+   item.scheduleTime = state[item.id].scheduleTime || null;
+   }
+   });
+   renderList();
+   if (document.getElementById('schedule-board-modal').classList.contains('show')) renderScheduleBoard();
+
+   if (activeItemIdx) {
+   const item = allFeatures.find(f => f.id === activeItemIdx);
+   if(item && item.layer.isPopupOpen()) bindPopupToItem(item);
+   }
+ }
+
+ // Always update notifications
+ const oldUnread = parseInt(document.getElementById('notif-badge').textContent) || 0;
+ renderNotifications();
+ const newUnread = parseInt(document.getElementById('notif-badge').textContent) || 0;
+ if (newUnread > oldUnread && newUnread !== 0) triggerBellAnimation();
+ });
+
+ // ── LOGIN ──
+ function processLogin() {
+ const user = document.getElementById('login-username').value;
+ const pass = document.getElementById('login-password').value;
+ const btn = document.getElementById('btn-do-login');
+ 
+ if((user === 'admin' || user === 'user') && pass === '123456') {
+ currentUser = { role: user, username: user };
+ document.body.setAttribute('data-role', user);
+ document.getElementById('display-role').textContent = user === 'admin' ? 'Quản trị viên' : 'Người dùng';
+ document.getElementById('display-role').style.color = user === 'admin' ? 'var(--danger)' : 'var(--accent)';
+
+ btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang xác thực...';
+ btn.style.pointerEvents = 'none';
+ btn.style.opacity = '0.8';
+ 
+ setTimeout(() => {
+ document.getElementById('login-screen').classList.add('hidden');
+ setTimeout(() => {
+ document.getElementById('login-screen').style.display = 'none';
+ document.getElementById('dashboard').classList.add('show-dash');
+ initDashboard();
+ renderNotifications();
+ showToast(`Đăng nhập thành công! Xin chào <b>${user.toUpperCase()}</b>`, 'success');
+ }, 600);
+ }, 800);
+ } else {
+ btn.style.animation = 'shakeX 0.4s ease';
+ showToast('Tài khoản hoặc mật khẩu không chính xác!', 'error');
+ setTimeout(() => { btn.style.animation = ''; }, 400);
+ }
+ }
+
+ function logout() {
+ document.body.style.transition = "opacity 0.3s";
+ document.body.style.opacity = "0";
+ setTimeout(() => { window.location.reload(); }, 300);
+ }
+
+ // ── DASHBOARD INIT ──
+ function initDashboard() {
+ map = L.map('map', { zoomControl: false }).setView([13.771274, 109.210245], 14);
+ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+ L.control.zoom({ position: 'bottomright' }).addTo(map);
+ setTimeout(() => map.invalidateSize(), 100);
+
+ fetchPotholeData();
+
+ // Auto-refresh mỗi 30 giây để lấy data mới từ server
+ autoRefreshTimer = setInterval(fetchPotholeData, AUTO_REFRESH_INTERVAL);
+ }
+
+ function fetchPotholeData() {
+ // Thử fetch từ API server trước, fallback sang file local, cuối cùng dùng dummy
+ fetch(`${API_BASE}/api/potholes`)
+ .then(r => { if(!r.ok) throw new Error("API not available"); return r.json(); })
+ .then(data => {
+  // Xóa markers cũ trước khi load data mới (cho auto-refresh)
+  if (allFeatures.length > 0) {
+   allFeatures.forEach(item => { if(item.layer) map.removeLayer(item.layer); });
+   allFeatures = [];
+  }
+  processGeoJSON(data);
+  console.log(`[REFRESH] Loaded ${data.features.length} potholes from server`);
+ })
+ .catch(() => {
+  // Fallback: thử đọc file local
+  fetch('potholes.geojson')
+  .then(r => { if(!r.ok) throw new Error("No file"); return r.json(); })
+  .then(data => {
+   if (allFeatures.length > 0) {
+    allFeatures.forEach(item => { if(item.layer) map.removeLayer(item.layer); });
+    allFeatures = [];
+   }
+   processGeoJSON(data);
+  })
+  .catch(() => {
+   if (allFeatures.length === 0) processGeoJSON(dummyGeoJSON);
+  });
+ });
+ }
+
+ function processGeoJSON(data) {
+ const state = getPotholeState();
+ L.geoJSON(data, {
+ pointToLayer(feature, latlng) {
+ const vib = parseFloat(feature.properties.vibration) || 0;
+ const isDanger = vib >= 20;
+ const marker = L.circleMarker(latlng, { radius: Math.min(18, 6 + vib / 3000), fillColor: isDanger ? '#e11d48' : '#d97706', fillOpacity: 0.9, color: '#ffffff', weight: 2 });
+ const id = generateId(latlng.lat, latlng.lng);
+ const savedState = state[id] || {};
+ 
+ allFeatures.push({ 
+ id, feature, layer: marker, isDanger, 
+ upvotes: savedState.upvotes || 0, 
+ status: savedState.status || 'pending', 
+ votedBy: savedState.votedBy || [],
+ scheduleTime: savedState.scheduleTime || null
+ });
+ return marker;
+ }
+ }).addTo(map);
+
+ allFeatures.forEach(item => bindPopupToItem(item));
+ renderList();
+ }
+
+ // ── INTERACTIONS ──
+ window.handleUpvote = function(id, sourceBtn) {
+ const item = allFeatures.find(f => f.id === id);
+ if(!item) return;
+
+ const hasVoted = item.votedBy.includes(currentUser.username);
+ if (hasVoted) {
+ item.upvotes--;
+ item.votedBy = item.votedBy.filter(u => u !== currentUser.username);
+ } else {
+ item.upvotes++;
+ item.votedBy.push(currentUser.username);
+ 
+ const roleName = currentUser.role === 'admin' ? 'Ban Quản trị' : 'Người dùng';
+ addNotification('all', `<b>${roleName}</b> vừa upvote một điểm báo cáo tại tọa độ <b>${item.feature.geometry.coordinates[1].toFixed(4)}</b>`, 'info');
+ triggerBellAnimation();
+ }
+
+ const nowVoted = item.votedBy.includes(currentUser.username);
+
+ // ── Real-time: update every upvote button for this id without full re-render ──
+ document.querySelectorAll(`[data-upvote-id="${id}"]`).forEach(btn => {
+   if (nowVoted) {
+     btn.classList.add('voted');
+   } else {
+     btn.classList.remove('voted');
+   }
+   // Update count text node (format: icon + space + count)
+   const countSpan = btn.querySelector('.upvote-count');
+   if (countSpan) countSpan.textContent = item.upvotes;
+ });
+
+ // ── Real-time: update popup upvote button if open ──
+ const popBtn = document.querySelector(`.btn-upvote-pop[data-upvote-id="${id}"]`);
+ if (popBtn) {
+   popBtn.className = `btn-upvote-pop${nowVoted ? ' voted' : ''}`;
+   popBtn.setAttribute('data-upvote-id', id);
+   popBtn.innerHTML = `<i class="fas fa-arrow-up"></i> ${nowVoted ? 'Đã Upvote' : 'Upvote'}`;
+ }
+
+ const state = getPotholeState();
+ state[id] = { upvotes: item.upvotes, status: item.status, votedBy: item.votedBy, scheduleTime: item.scheduleTime };
+ savePotholeState(state);
+ window.dispatchEvent(new CustomEvent('storage', { detail: { key: STORAGE_KEY_STATE } }));
+ }
+
+ // Schedule Flow
+ window.openDatePicker = function(id) {
+ pendingScheduleId = id;
+ document.getElementById('date-picker-modal').classList.add('show');
+ }
+ window.closeDatePicker = function() {
+ pendingScheduleId = null;
+ document.getElementById('date-picker-modal').classList.remove('show');
+ }
+ window.confirmSchedule = function() {
+ const dt = document.getElementById('schedule-time-input').value;
+ if(!dt) return alert("Vui lòng chọn ngày giờ!");
+
+ const item = allFeatures.find(f => f.id === pendingScheduleId);
+ if(item) {
+ item.status = 'scheduled';
+ const formattedDate = new Date(dt).toLocaleString('vi-VN', {hour: '2-digit', minute:'2-digit', day:'2-digit', month:'2-digit', year:'numeric'});
+ item.scheduleTime = formattedDate;
+ 
+ const state = getPotholeState();
+ state[item.id] = { upvotes: item.upvotes, status: item.status, votedBy: item.votedBy, scheduleTime: formattedDate };
+ savePotholeState(state);
+
+ addNotification('all', `<b>Ban Quản trị</b> đã lên lịch sửa chữa tại <b>${item.feature.geometry.coordinates[1].toFixed(4)}</b> vào lúc <b>${formattedDate}</b>.`, 'success');
+ window.dispatchEvent(new CustomEvent('storage', { detail: { key: STORAGE_KEY_STATE } }));
+ showToast('<i class="fas fa-check-circle"></i> Đã đưa vào kế hoạch sửa chữa!', 'success');
+ }
+ closeDatePicker();
+ }
+
+ window.handleDelete = function(id) {
+ openDeleteModal(id);
+ }
+ 
+ let _pendingDeleteId = null;
+ function openDeleteModal(id) {
+ _pendingDeleteId = id;
+ const item = allFeatures.find(f => f.id === id);
+ const coords = item ? item.feature.geometry.coordinates : null;
+ document.getElementById('delete-modal-desc').innerHTML = coords
+  ? `Bạn có chắc muốn xóa điểm tọa độ <strong>${coords[1].toFixed(5)}, ${coords[0].toFixed(5)}</strong> khỏi bản đồ?<br><br>Hành động này <strong>không thể hoàn tác</strong>.`
+  : `Bạn có chắc muốn xóa điểm dữ liệu này khỏi bản đồ?<br><br>Hành động này <strong>không thể hoàn tác</strong>.`;
+ document.getElementById('btn-confirm-delete-action').onclick = function() {
+   const idx = allFeatures.findIndex(f => f.id === _pendingDeleteId);
+   if (idx > -1) {
+   const item = allFeatures[idx];
+   // Gọi API xóa trên server (nếu có property id từ server)
+   const serverId = item.feature.properties.id;
+   if (serverId) {
+    fetch(`${API_BASE}/api/pothole/${serverId}`, { method: 'DELETE' })
+    .then(r => { if(r.ok) console.log(`[DELETE] Server deleted: ${serverId}`); })
+    .catch(e => console.warn('[DELETE] Server error:', e));
+   }
+   map.removeLayer(item.layer);
+   allFeatures.splice(idx, 1);
+   map.closePopup();
+   renderList();
+   showToast('<i class="fas fa-check-circle"></i> Đã xóa thành công', 'success');
+   }
+   closeDeleteModal();
+  };
+ document.getElementById('delete-confirm-modal').classList.add('show');
+ }
+ function closeDeleteModal() {
+ _pendingDeleteId = null;
+ document.getElementById('delete-confirm-modal').classList.remove('show');
+ }
+
+ // ── SCHEDULE BOARD ──
+ let activeSchedPeriod = 'all';
+
+ function parseSchedDate(schedTimeStr) {
+ if (!schedTimeStr) return null;
+ // format: "HH:MM DD/MM/YYYY" from toLocaleString vi-VN
+ const match = schedTimeStr.match(/(\d{2}):(\d{2}) (\d{2})\/(\d{2})\/(\d{4})/);
+ if (!match) return null;
+ return new Date(+match[5], +match[4]-1, +match[3], +match[1], +match[2]);
+ }
+
+ function isInPeriod(schedTimeStr, period) {
+ const d = parseSchedDate(schedTimeStr);
+ if (!d) return false;
+ const now = new Date();
+ if (period === 'today') {
+  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+ }
+ if (period === 'week') {
+  const startOfWeek = new Date(now); startOfWeek.setHours(0,0,0,0);
+  startOfWeek.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1));
+  const endOfWeek = new Date(startOfWeek); endOfWeek.setDate(startOfWeek.getDate() + 6); endOfWeek.setHours(23,59,59,999);
+  return d >= startOfWeek && d <= endOfWeek;
+ }
+ if (period === 'month') {
+  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+ }
+ return true;
+ }
+
+ function renderScheduleBoard() {
+ const board = document.getElementById('schedule-board-list');
+ const scheduledItems = allFeatures.filter(f => f.status === 'scheduled' || f.status === 'in_progress' || f.status === 'completed');
+
+ // Update count badges
+ ['all','today','week','month'].forEach(p => {
+  const count = p === 'all' ? scheduledItems.length : scheduledItems.filter(f => isInPeriod(f.scheduleTime, p)).length;
+  const el = document.getElementById('sfc-' + p);
+  if (el) el.textContent = count;
+ });
+
+ const filtered = activeSchedPeriod === 'all' ? scheduledItems : scheduledItems.filter(f => isInPeriod(f.scheduleTime, activeSchedPeriod));
+
+ if (filtered.length === 0) {
+  board.innerHTML = `<div style="padding:40px; text-align:center; color:var(--text-muted);">
+  <i class="fas fa-calendar-times" style="font-size:36px; opacity:0.2; margin-bottom:12px; display:block;"></i>
+  <div style="font-size:14px; font-weight:600; margin-bottom:4px;">Không có lịch trình</div>
+  <div style="font-size:12px; color:#94a3b8;">Thử chọn khoảng thời gian khác</div>
+  </div>`;
+ } else {
+  const isAdmin = currentUser.role === 'admin';
+  board.innerHTML = filtered.map((item, idx) => {
+   let repairBadge = '';
+   if (item.status === 'in_progress') {
+    repairBadge = `<span class="sched-repair-badge in_progress"><i class="fas fa-hard-hat"></i> Đang sửa</span>`;
+   } else if (item.status === 'completed') {
+    repairBadge = `<span class="sched-repair-badge completed"><i class="fas fa-check-circle"></i> Đã sửa xong</span>`;
+   }
+
+   let adminBtns = '';
+   if (isAdmin) {
+    const canProgress = item.status !== 'completed';
+    const canDone = item.status !== 'completed';
+    adminBtns = `
+     <button class="btn-sched-edit" onclick="openEditScheduleModal('${item.id}')"><i class="fas fa-edit"></i> Sửa lịch</button>
+     ${item.status !== 'in_progress' && item.status !== 'completed' ? `<button class="btn-sched-status set-progress" onclick="setRepairStatus('${item.id}','in_progress')"><i class="fas fa-hard-hat"></i> Đang sửa</button>` : ''}
+     ${item.status !== 'completed' ? `<button class="btn-sched-status set-done" onclick="setRepairStatus('${item.id}','completed')"><i class="fas fa-check-circle"></i> Đã xong</button>` : ''}
+    `;
+   }
+
+   return `
+   <div class="schedule-item" style="animation-delay: ${idx * 0.08}s">
+    <div style="flex:1; min-width:0;">
+     <div class="sched-date"><i class="fas fa-clock"></i> ${item.scheduleTime}</div>
+     <div class="sched-coords"><i class="fas fa-map-marker-alt" style="color:var(--accent); margin-right:4px;"></i>Tọa độ: ${item.feature.geometry.coordinates[1].toFixed(5)}, ${item.feature.geometry.coordinates[0].toFixed(5)}</div>
+     ${repairBadge ? `<div class="sched-status-row">${repairBadge}</div>` : ''}
+    </div>
+    <div class="sched-item-actions">
+     <button class="btn-sched-viewmap" onclick="closeScheduleBoard(); focusItem('${item.id}')"><i class="fas fa-map-marked-alt"></i> Xem map</button>
+     ${adminBtns}
+    </div>
+   </div>
+   `;
+  }).join('');
+ }
+ }
+
+ window.selectSchedFilter = function(btn) {
+ document.querySelectorAll('.sched-filter-btn').forEach(b => b.classList.remove('active'));
+ btn.classList.add('active');
+ activeSchedPeriod = btn.dataset.period;
+ renderScheduleBoard();
+ }
+
+ window.openScheduleBoard = function() {
+ activeSchedPeriod = 'all';
+ document.querySelectorAll('.sched-filter-btn').forEach(b => b.classList.remove('active'));
+ const allBtn = document.querySelector('.sched-filter-btn[data-period="all"]');
+ if (allBtn) allBtn.classList.add('active');
+ renderScheduleBoard();
+ document.getElementById('schedule-board-modal').classList.add('show');
+ }
+ window.closeScheduleBoard = function() { document.getElementById('schedule-board-modal').classList.remove('show'); }
+
+ // ── EDIT SCHEDULE (admin) ──
+ let _pendingEditId = null;
+ window.openEditScheduleModal = function(id) {
+  _pendingEditId = id;
+  const item = allFeatures.find(f => f.id === id);
+  if (!item) return;
+  // Pre-fill the datetime input from saved scheduleTime string
+  const d = parseSchedDate(item.scheduleTime);
+  if (d) {
+   const pad = n => String(n).padStart(2,'0');
+   const val = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+   document.getElementById('edit-schedule-time-input').value = val;
+  } else {
+   document.getElementById('edit-schedule-time-input').value = '';
+  }
+  document.getElementById('edit-schedule-modal').classList.add('show');
+ }
+ window.closeEditScheduleModal = function() {
+  _pendingEditId = null;
+  document.getElementById('edit-schedule-modal').classList.remove('show');
+ }
+ window.confirmEditSchedule = function() {
+  const dt = document.getElementById('edit-schedule-time-input').value;
+  if (!dt) return alert('Vui lòng chọn ngày giờ!');
+  const item = allFeatures.find(f => f.id === _pendingEditId);
+  if (item) {
+   const formattedDate = new Date(dt).toLocaleString('vi-VN', {hour:'2-digit', minute:'2-digit', day:'2-digit', month:'2-digit', year:'numeric'});
+   item.scheduleTime = formattedDate;
+   const state = getPotholeState();
+   state[item.id] = { upvotes: item.upvotes, status: item.status, votedBy: item.votedBy, scheduleTime: formattedDate };
+   savePotholeState(state);
+   addNotification('user', `<b>Ban Quản trị</b> đã cập nhật lịch sửa chữa tại <b>${item.feature.geometry.coordinates[1].toFixed(4)}</b> sang <b>${formattedDate}</b>.`, 'info');
+   window.dispatchEvent(new CustomEvent('storage', { detail: { key: STORAGE_KEY_STATE } }));
+   renderScheduleBoard();
+   renderList();
+   showToast('<i class="fas fa-check-circle"></i> Đã cập nhật lịch trình!', 'success');
+  }
+  closeEditScheduleModal();
+ }
+
+ // ── SET REPAIR STATUS (admin) ──
+ window.setRepairStatus = function(id, newStatus) {
+  const item = allFeatures.find(f => f.id === id);
+  if (!item) return;
+  item.status = newStatus;
+  const state = getPotholeState();
+  state[item.id] = { upvotes: item.upvotes, status: item.status, votedBy: item.votedBy, scheduleTime: item.scheduleTime };
+  savePotholeState(state);
+  const statusLabel = newStatus === 'in_progress' ? 'Đang sửa' : 'Đã sửa xong';
+  const statusIcon = newStatus === 'in_progress' ? 'fa-hard-hat' : 'fa-check-circle';
+  addNotification('user', `<b>Ban Quản trị</b> cập nhật trạng thái tại <b>${item.feature.geometry.coordinates[1].toFixed(4)}</b>: <b>${statusLabel}</b>.`, newStatus === 'completed' ? 'success' : 'info');
+  window.dispatchEvent(new CustomEvent('storage', { detail: { key: STORAGE_KEY_STATE } }));
+  renderScheduleBoard();
+  renderList();
+  showToast(`<i class="fas ${statusIcon}"></i> Đã cập nhật: ${statusLabel}`, newStatus === 'completed' ? 'success' : 'info');
+ }
+
+ // ── BIND POPUP ──
+ function bindPopupToItem(item) {
+ const p = item.feature.properties;
+ const coords = item.feature.geometry.coordinates;
+ const badgeClass = item.isDanger ? 'badge-danger' : 'badge-warning';
+ const badgeText = item.isDanger ? 'Nguy hiểm' : 'Cảnh báo';
+ const hasVoted = item.votedBy.includes(currentUser.username);
+
+ let statusHtml = '';
+ if (item.status === 'scheduled') {
+  statusHtml = `<span class="badge badge-success" style="margin-left:5px;"><i class="fas fa-tools"></i> ${item.scheduleTime}</span>`;
+ } else if (item.status === 'in_progress') {
+  statusHtml = `<span class="badge" style="margin-left:5px; background:#fef3c7; color:#d97706;"><i class="fas fa-hard-hat"></i> Đang sửa</span>`;
+ } else if (item.status === 'completed') {
+  statusHtml = `<span class="badge badge-success" style="margin-left:5px;"><i class="fas fa-check-circle"></i> Đã sửa xong</span>`;
+ }
+
+ const imageHtml = p.image
+   ? `<img class="popup-image" src="${p.image}" alt="Ảnh ổ gà" onerror="this.parentNode.innerHTML='<div class=\\'popup-image-placeholder\\'><i class=\\'fas fa-image\\'></i> Không tải được ảnh</div>'">`
+   : `<div class="popup-image-placeholder"><i class="fas fa-image"></i> Không có ảnh</div>`;
+
+ const popupContent = `
+ ${imageHtml}
+ <div class="popup-header"><div class="popup-title">Chi tiết điểm phát hiện</div>${statusHtml}</div>
+ <div class="popup-body">
+ <div class="popup-row"><span class="popup-key">Mức độ</span><span class="badge ${badgeClass}">${badgeText}</span></div>
+ <div class="popup-row"><span class="popup-key">Chỉ số rung</span><span class="popup-val">${p.vibration ?? '—'}</span></div>
+ <div class="popup-row"><span class="popup-key">Lượt chú ý</span><span class="popup-val"><i class="fas fa-arrow-up" style="color:var(--accent)"></i> ${item.upvotes}</span></div>
+ 
+ <div class="popup-actions">
+ <button class="btn-upvote-pop ${hasVoted ? 'voted' : ''}" data-upvote-id="${item.id}" onclick="handleUpvote('${item.id}', this)"><i class="fas fa-arrow-up"></i> ${hasVoted ? 'Đã Upvote' : 'Upvote'}</button>
+ ${item.status === 'pending' ? `<button class="btn-schedule admin-only" onclick="openDatePicker('${item.id}')"><i class="fas fa-calendar-check"></i> Lên lịch</button>` : ''}
+ <button class="btn-delete admin-only" onclick="handleDelete('${item.id}')"><i class="fas fa-trash"></i> Xóa</button>
+ </div>
+ </div>`;
+ item.layer.bindPopup(popupContent, { maxWidth: 320, minWidth: 260 });
+ }
+
+ // ── RENDER LIST ──
+ function renderList() {
+ const container = document.getElementById('pothole-list');
+ const q = searchQuery.toLowerCase();
+
+ let filtered = allFeatures.filter((item) => {
+ const { feature, isDanger } = item;
+ if (activeFilter === 'danger' && !isDanger) return false;
+ if (activeFilter === 'warning' && isDanger) return false;
+ if (activeFilter === 'in_progress' && item.status !== 'in_progress') return false;
+ if (q) {
+ const c = feature.geometry.coordinates;
+ if (!c[1].toString().includes(q) && !c[0].toString().includes(q)) return false;
+ }
+ return true;
+ });
+
+ if (activeSort === 'vibration') filtered.sort((a,b) => (b.feature.properties.vibration||0) - (a.feature.properties.vibration||0));
+ else if (activeSort === 'upvotes') filtered.sort((a,b) => b.upvotes - a.upvotes);
+
+ if (filtered.length === 0) {
+ container.innerHTML = `<div style="text-align:center; padding: 48px 20px; color: var(--text-muted);">
+   <div style="font-size:52px; margin-bottom:12px; line-height:1; opacity:0.45;">📭</div>
+   <div style="font-size:14px; font-weight:600; color:var(--text-muted); margin-bottom:4px;">Không có dữ liệu</div>
+   <div style="font-size:12px; color:#94a3b8;">Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm</div>
+ </div>`;
+ return;
+ }
+
+ container.innerHTML = filtered.map((item, idx) => {
+ const coords = item.feature.geometry.coordinates;
+ const cls = item.isDanger ? 'danger' : 'warning';
+ const hasVoted = item.votedBy.includes(currentUser.username);
+ let statusHtml = '';
+ if (item.status === 'scheduled') {
+  statusHtml = `<span class="badge badge-success"><i class="fas fa-tools"></i> ${item.scheduleTime}</span>`;
+ } else if (item.status === 'in_progress') {
+  statusHtml = `<span class="badge" style="background:#fef3c7; color:#d97706;"><i class="fas fa-hard-hat"></i> Đang sửa</span>`;
+ } else if (item.status === 'completed') {
+  statusHtml = `<span class="badge badge-success"><i class="fas fa-check-circle"></i> Đã sửa xong</span>`;
+ }
+
+ return `
+ <div class="list-item ${activeItemIdx === item.id ? 'active' : ''}" onclick="focusItem('${item.id}')" style="animation-delay: ${Math.min(idx, 15) * 0.05}s">
+ <div class="item-header">
+ <div class="item-title"><div class="item-dot ${cls}"></div>${coords[1].toFixed(5)}, ${coords[0].toFixed(5)}</div>
+ </div>
+ <div class="item-meta">
+ <span class="meta-chip"><i class="fas fa-wave-square"></i> Rung: ${item.feature.properties.vibration ?? '—'}</span>
+ ${statusHtml}
+ </div>
+ <div class="item-actions">
+ <button class="btn-upvote ${hasVoted ? 'voted' : ''}" data-upvote-id="${item.id}" onclick="event.stopPropagation(); handleUpvote('${item.id}', this)"><i class="fas fa-arrow-up"></i> <span class="upvote-count">${item.upvotes}</span></button>
+ <button class="btn-upvote admin-only" style="color:var(--danger); border-color:var(--danger-bg); background:var(--danger-bg);" onclick="event.stopPropagation(); handleDelete('${item.id}')"><i class="fas fa-trash"></i> Xóa</button>
+ </div>
+ </div>`;
+ }).join('');
+ }
+
+ window.focusItem = function(id) {
+ const item = allFeatures.find(f => f.id === id);
+ if (!item) return;
+ activeItemIdx = id;
+ renderList();
+ map.flyTo([item.feature.geometry.coordinates[1], item.feature.geometry.coordinates[0]], 17, { duration: 0.8 });
+ item.layer.openPopup();
+ };
+
+ // ── NOTIFICATIONS UI ──
+ function isNotifRead(n) {
+ // Per-user read state: support both old 'read' boolean and new 'readBy' array
+ if (Array.isArray(n.readBy)) return n.readBy.includes(currentUser.username);
+ return !!n.read;
+ }
+
+ function renderNotifications() {
+ // Lọc lấy thông báo dành cho mình HOẶC cho 'all' (tất cả mọi người),
+ // VÀ bỏ qua thông báo do chính mình vừa tạo ra (tránh hiển thị kép)
+ const notifs = getNotifs().filter(n => (n.targetRole === currentUser.role || n.targetRole === 'all') && n.sender !== currentUser.username);
+ const unreadCount = notifs.filter(n => !isNotifRead(n)).length;
+
+ const badge = document.getElementById('notif-badge');
+ if(unreadCount > 0) { badge.textContent = unreadCount; badge.classList.add('has-unread'); }
+ else { badge.classList.remove('has-unread'); }
+
+ const listContainer = document.getElementById('notif-list');
+ if(notifs.length === 0) {
+ listContainer.innerHTML = `<div class="notif-empty"><i class="fas fa-bell-slash" style="font-size:30px; opacity:0.2; margin-bottom:10px; display:block;"></i>Không có thông báo mới</div>`;
+ return;
+ }
+ listContainer.innerHTML = notifs.map(n => `
+ <div class="notif-item ${isNotifRead(n) ? '' : 'unread'}">
+ <div class="notif-icon ${n.type}"><i class="fas ${n.type==='success'?'fa-tools':'fa-arrow-up'}"></i></div>
+ <div class="notif-content"><p>${n.message}</p><div class="notif-time"><i class="far fa-clock"></i> ${n.time}</div></div>
+ </div>`).join('');
+ }
+
+ window.toggleNotifPanel = function(e) {
+ e.stopPropagation();
+ document.getElementById('notif-panel').classList.toggle('show');
+ }
+ window.markAllRead = function() {
+ const notifs = getNotifs();
+ notifs.forEach(n => {
+   if ((n.targetRole === currentUser.role || n.targetRole === 'all') && n.sender !== currentUser.username) {
+   // Use per-user readBy array
+   if (!Array.isArray(n.readBy)) n.readBy = [];
+   if (!n.readBy.includes(currentUser.username)) n.readBy.push(currentUser.username);
+   }
+ });
+ saveNotifs(notifs);
+ renderNotifications();
+ }
+
+ // ── SIDEBAR VIEW SWITCHER ──
+ let activeSidebarView = 'list';
+ let analyticsCharts = {};
+
+ window.switchSidebarView = function(view) {
+   activeSidebarView = view;
+   const listWrapper = document.getElementById('list-view-wrapper');
+   const analyticsPanel = document.getElementById('analytics-panel');
+   const tabList = document.getElementById('tab-list-view');
+   const tabAnalytics = document.getElementById('tab-analytics-view');
+   if (view === 'list') {
+     listWrapper.classList.remove('hidden-view');
+     analyticsPanel.classList.remove('visible');
+     tabList.classList.add('active');
+     tabList.classList.remove('active-analytics');
+     tabAnalytics.classList.remove('active', 'active-analytics');
+   } else {
+     listWrapper.classList.add('hidden-view');
+     analyticsPanel.classList.add('visible');
+     tabList.classList.remove('active');
+     tabAnalytics.classList.add('active', 'active-analytics');
+     renderAnalytics();
+   }
+ }
+
+ // ── ANALYTICS ──
+ window.renderAnalytics = function() {
+   const total = allFeatures.length;
+   const danger = allFeatures.filter(f => f.isDanger).length;
+   const warning = total - danger;
+   const pending = allFeatures.filter(f => f.status === 'pending').length;
+   const scheduled = allFeatures.filter(f => f.status === 'scheduled').length;
+   const inProgress = allFeatures.filter(f => f.status === 'in_progress').length;
+   const completed = allFeatures.filter(f => f.status === 'completed').length;
+
+   document.getElementById('stat-total').textContent = total;
+   document.getElementById('stat-danger').textContent = danger;
+   document.getElementById('stat-inprogress').textContent = inProgress;
+   document.getElementById('stat-completed').textContent = completed;
+
+   // Chart defaults for light theme
+   Chart.defaults.color = '#64748b';
+   Chart.defaults.font.family = "'Inter', sans-serif";
+
+   const tooltipDefaults = {
+     backgroundColor: 'rgba(15,23,42,0.9)', titleColor: '#f1f5f9',
+     bodyColor: '#cbd5e1', cornerRadius: 8, padding: 10
+   };
+
+   // ── Chart 1: Severity Donut ──
+   if (analyticsCharts.severity) analyticsCharts.severity.destroy();
+   analyticsCharts.severity = new Chart(document.getElementById('chart-severity'), {
+     type: 'doughnut',
+     data: {
+       labels: ['Nguy hiểm', 'Cảnh báo'],
+       datasets: [{ data: [danger, warning],
+         backgroundColor: ['#e11d48','#f59e0b'],
+         borderColor: ['#ffffff','#ffffff'], borderWidth: 3, hoverOffset: 6 }]
+     },
+     options: { responsive: false, cutout: '68%',
+       plugins: { legend: { display: false }, tooltip: { ...tooltipDefaults } } }
+   });
+   document.getElementById('legend-severity').innerHTML = [
+     { label: 'Nguy hiểm', value: danger, color: '#e11d48' },
+     { label: 'Cảnh báo', value: warning, color: '#f59e0b' }
+   ].map(it => `<div class="legend-row"><div class="legend-dot" style="background:${it.color}"></div><span class="legend-label">${it.label}</span><span class="legend-value">${it.value}</span></div>`).join('');
+
+   // ── Chart 2: Status Donut ──
+   if (analyticsCharts.status) analyticsCharts.status.destroy();
+   analyticsCharts.status = new Chart(document.getElementById('chart-status'), {
+     type: 'doughnut',
+     data: {
+       labels: ['Chờ xử lý','Đã lên lịch','Đang sửa','Đã xong'],
+       datasets: [{ data: [pending, scheduled, inProgress, completed],
+         backgroundColor: ['#64748b','#3b82f6','#f59e0b','#10b981'],
+         borderColor: ['#ffffff','#ffffff','#ffffff','#ffffff'], borderWidth: 3, hoverOffset: 6 }]
+     },
+     options: { responsive: false, cutout: '68%',
+       plugins: { legend: { display: false }, tooltip: { ...tooltipDefaults } } }
+   });
+   document.getElementById('legend-status').innerHTML = [
+     { label: 'Chờ xử lý', value: pending, color: '#64748b' },
+     { label: 'Đã lên lịch', value: scheduled, color: '#3b82f6' },
+     { label: 'Đang sửa', value: inProgress, color: '#f59e0b' },
+     { label: 'Đã xong', value: completed, color: '#10b981' }
+   ].map(it => `<div class="legend-row"><div class="legend-dot" style="background:${it.color}"></div><span class="legend-label">${it.label}</span><span class="legend-value">${it.value}</span></div>`).join('');
+
+   // ── Chart 3: Vibration Histogram ──
+   const vibValues = allFeatures.map(f => parseFloat(f.feature.properties.vibration) || 0);
+   const bins = [
+     { label: '0–5', min: 0, max: 5 }, { label: '5–10', min: 5, max: 10 },
+     { label: '10–15', min: 10, max: 15 }, { label: '15–20', min: 15, max: 20 },
+     { label: '20–25', min: 20, max: 25 }, { label: '25+', min: 25, max: Infinity }
+   ];
+   const binCounts = bins.map(b => vibValues.filter(v => v >= b.min && v < b.max).length);
+   if (analyticsCharts.vibration) analyticsCharts.vibration.destroy();
+   analyticsCharts.vibration = new Chart(document.getElementById('chart-vibration'), {
+     type: 'bar',
+     data: { labels: bins.map(b => b.label), datasets: [{
+       label: 'Số điểm', data: binCounts,
+       backgroundColor: bins.map((_, i) => i >= 4 ? 'rgba(225,29,72,0.18)' : 'rgba(59,130,246,0.18)'),
+       borderColor: bins.map((_, i) => i >= 4 ? '#e11d48' : '#3b82f6'),
+       borderWidth: 1.5, borderRadius: 5, borderSkipped: false }]
+     },
+     options: { responsive: true, maintainAspectRatio: false,
+       plugins: { legend: { display: false }, tooltip: { ...tooltipDefaults,
+         callbacks: { title: items => `Rung: ${items[0].label}`, label: ctx => ` ${ctx.raw} điểm` }}},
+       scales: {
+         x: { grid: { color: '#f1f5f9' }, ticks: { color: '#64748b', font: { size: 10 } } },
+         y: { grid: { color: '#f1f5f9' }, ticks: { color: '#64748b', font: { size: 10 }, stepSize: 1 }, beginAtZero: true }
+       }}
+   });
+
+   // ── Chart 4: Top Upvotes Horizontal Bar ──
+   const topItems = [...allFeatures].sort((a, b) => b.upvotes - a.upvotes).slice(0, 5);
+   if (analyticsCharts.upvotes) analyticsCharts.upvotes.destroy();
+   analyticsCharts.upvotes = new Chart(document.getElementById('chart-upvotes'), {
+     type: 'bar',
+     data: {
+       labels: topItems.map(f => {
+         const c = f.feature.geometry.coordinates;
+         return `${c[1].toFixed(3)},${c[0].toFixed(3)}`;
+       }),
+       datasets: [{ label: 'Upvotes', data: topItems.map(f => f.upvotes),
+         backgroundColor: 'rgba(139,92,246,0.18)', borderColor: '#7c3aed',
+         borderWidth: 1.5, borderRadius: 5, borderSkipped: false }]
+     },
+     options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+       plugins: { legend: { display: false }, tooltip: { ...tooltipDefaults,
+         callbacks: { label: ctx => ` ${ctx.raw} upvotes` }}},
+       scales: {
+         x: { grid: { color: '#f1f5f9' }, ticks: { color: '#64748b', font: { size: 10 }, stepSize: 1 }, beginAtZero: true },
+         y: { grid: { display: false }, ticks: { color: '#64748b', font: { size: 9 } } }
+       }}
+   });
+ }
+
+ // ── DOM EVENTS ──
+ document.getElementById('btn-toggle-list').addEventListener('click', () => { document.getElementById('sidebar').classList.toggle('hidden'); setTimeout(() => map.invalidateSize(), 300); });
+ document.querySelectorAll('.tab-btn').forEach(btn => { btn.addEventListener('click', () => { document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); activeFilter = btn.dataset.filter; renderList(); }); });
+ document.getElementById('search-input').addEventListener('input', e => { searchQuery = e.target.value; renderList(); });
+ document.getElementById('login-password').addEventListener('keypress', function (e) { if (e.key === 'Enter') processLogin(); });
+
+ // ── CUSTOM SELECT DROPDOWN ──
+ window.toggleSortDropdown = function(e) {
+  e.stopPropagation();
+  const trigger = document.getElementById('sort-trigger');
+  const dropdown = document.getElementById('sort-dropdown');
+  const isOpen = dropdown.classList.contains('open');
+  dropdown.classList.toggle('open', !isOpen);
+  trigger.classList.toggle('open', !isOpen);
+ }
+ window.selectSort = function(el) {
+  const value = el.dataset.value;
+  const text = el.textContent.trim();
+  document.querySelectorAll('#sort-dropdown .dropdown-option').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('sort-trigger-text').textContent = text;
+  document.getElementById('sort-dropdown').classList.remove('open');
+  document.getElementById('sort-trigger').classList.remove('open');
+  activeSort = value;
+  renderList();
+ }
+
+ // ── GLOBAL CLICK HANDLER (close dropdowns & panels) ──
+ document.addEventListener('click', (e) => {
+  // Close notification panel
+  document.getElementById('notif-panel').classList.remove('show');
+  // Close sort dropdown
+  const wrapper = document.getElementById('sort-wrapper');
+  if (wrapper && !wrapper.contains(e.target)) {
+   document.getElementById('sort-dropdown').classList.remove('open');
+   document.getElementById('sort-trigger').classList.remove('open');
+  }
+ });
+</script>
+</body>
+</html>
