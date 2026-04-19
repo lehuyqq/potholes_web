@@ -922,7 +922,10 @@
  <div class="notif-panel" id="notif-panel" onclick="event.stopPropagation()">
  <div class="notif-header">
  <span>Thông báo mới</span>
- <span class="btn-mark-read" onclick="markAllRead()"><i class="fas fa-check-double"></i> Đánh dấu đã đọc</span>
+ <div style="display:flex; gap:10px; align-items:center;">
+ <span class="btn-mark-read" onclick="markAllRead()" title="Đánh dấu tất cả đã đọc"><i class="fas fa-check-double"></i> Đã đọc</span>
+ <span class="btn-mark-read" onclick="clearMyNotifs()" title="Xoá lịch sử thông báo của bạn" style="color:var(--danger);"><i class="fas fa-trash"></i> Xoá</span>
+ </div>
  </div>
  <div class="notif-list" id="notif-list"></div>
  </div>
@@ -1719,7 +1722,12 @@
  function renderNotifications() {
  // Lọc lấy thông báo dành cho mình HOẶC cho 'all' (tất cả mọi người),
  // VÀ bỏ qua thông báo do chính mình vừa tạo ra (tránh hiển thị kép)
- const notifs = getNotifs().filter(n => (n.targetRole === currentUser.role || n.targetRole === 'all') && n.sender !== currentUser.username);
+ // VÀ bỏ qua thông báo user đã xoá khỏi lịch sử cá nhân
+ const notifs = getNotifs().filter(n =>
+   (n.targetRole === currentUser.role || n.targetRole === 'all')
+   && n.sender !== currentUser.username
+   && !(Array.isArray(n.hiddenBy) && n.hiddenBy.includes(currentUser.username))
+ );
  const unreadCount = notifs.filter(n => !isNotifRead(n)).length;
 
  const badge = document.getElementById('notif-badge');
@@ -1753,6 +1761,41 @@
  });
  saveNotifs(notifs);
  renderNotifications();
+ }
+
+ // Xoá lịch sử thông báo của user hiện tại (per-user, không ảnh hưởng role khác)
+ window.clearMyNotifs = function() {
+ const notifs = getNotifs();
+ const visibleCount = notifs.filter(n =>
+   (n.targetRole === currentUser.role || n.targetRole === 'all')
+   && n.sender !== currentUser.username
+   && !(Array.isArray(n.hiddenBy) && n.hiddenBy.includes(currentUser.username))
+ ).length;
+
+ if (visibleCount === 0) {
+   showToast('Không có thông báo để xoá', 'info');
+   return;
+ }
+ if (!confirm(`Xoá ${visibleCount} thông báo khỏi lịch sử của bạn?`)) return;
+
+ // Đánh dấu hiddenBy cho từng notif user đang thấy
+ notifs.forEach(n => {
+   if ((n.targetRole === currentUser.role || n.targetRole === 'all') && n.sender !== currentUser.username) {
+   if (!Array.isArray(n.hiddenBy)) n.hiddenBy = [];
+   if (!n.hiddenBy.includes(currentUser.username)) n.hiddenBy.push(currentUser.username);
+   }
+ });
+
+ // Nếu notif đã bị MỌI role xoá (hiddenBy chứa cả admin và user) → xoá hẳn khỏi storage
+ const KNOWN_USERS = ['admin', 'user'];
+ const cleaned = notifs.filter(n => {
+   if (!Array.isArray(n.hiddenBy)) return true;
+   return !KNOWN_USERS.every(u => n.hiddenBy.includes(u));
+ });
+
+ saveNotifs(cleaned);
+ renderNotifications();
+ showToast(`Đã xoá ${visibleCount} thông báo`, 'success');
  }
 
  // ── SIDEBAR VIEW SWITCHER ──
